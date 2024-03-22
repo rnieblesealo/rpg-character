@@ -1,13 +1,21 @@
 ### Checklist
 
-- [ ] Get player instance working
+- [x] Get player instance working
+- [ ] Attacking
 
-### Sprite Data
+---
 
-- Passed in sprites should be an image laid out as a grid with evenly sized tiles
-- What we pass into the player class:
-    - **Vector2i**: (X, Y) of animation start, relative to tile size and not pixels
-    - **enum State**: Action represented by animation (attacking, moving, etc...)
-    - **enum Direction**: 4-directional variation of animation
-    - **int**: Frame count of animation
-- Store them as a separate class?
+### Docs (?)
+
+These are just some loose notes to keep track of how some things work for now!
+
+##### Sprite Data
+
+- Passed in spritesheet images should have **evenly-sized frames** laid out in **horizontal** sequence
+
+##### Player Class
+
+- Args:
+    - **Spritesheet**: Texture ref. to spritesheet
+    - **Frame Dimensions**: Pixel dimensions of one frame of an animation 
+    - **Anims**: `State : AnimInfo` map w/animation data for every state 
