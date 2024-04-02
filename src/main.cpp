@@ -6,43 +6,30 @@
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
 
-enum State {
-  NONE,
+enum State { NONE, IDLE, WALK, ATTACK };
+enum Direction { UP, DOWN, LEFT, RIGHT };
 
-  IDLE_UP,
-  IDLE_DOWN,
-  IDLE_L,
-  IDLE_R,
-
-  WALK_UP,
-  WALK_DOWN,
-  WALK_L,
-  WALK_R,
-
-  ATTACK_UP,
-  ATTACK_DOWN,
-  ATTACK_L,
-  ATTACK_R
-};
-
-typedef struct AnimInfo {
-  AnimInfo(sf::Vector2i coords, int frame_count) {
-    this->coords = coords;
-    this->frame_count = frame_count;
-  }
-
+typedef struct StateInfo {
+public:
   sf::Vector2i coords; // row, col of first frame of animation
   int frame_count;
 
-} AnimInfo;
+  StateInfo(sf::Vector2i coords, int frame_count) {
+    this->coords = coords;
+    this->frame_count = frame_count;
+  }
+} StateInfo;
+
+typedef struct std::map<Direction, StateInfo> DirectionMap;
+typedef struct std::map<State, DirectionMap> StateMap;
 
 class Player {
 private:
   sf::Vector2f pos{0, 0};
-  sf::Vector2f vel{0, 0};
+  sf::Vector2i vel{0, 0};
 
   float speed{150};
-  float scale{1};
+  float scale{2};
 
   sf::Sprite sprite;
   sf::IntRect draw_rect{0, 0, 0, 0};
@@ -53,18 +40,29 @@ private:
   int curr_frame{0};
   float frame_timer{0};
 
-  std::map<State, AnimInfo> &anims;
+  StateMap states;
+
   State curr_state{NONE};
+  Direction curr_dir{UP};
 
   void onUserInput() {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
       vel.y = -1;
-      setState(WALK_UP);
+      
+      setState(WALK);
+      
+      // Prefer left/right animations when going diagonally! Looks better :)
+      if (vel.x == 0)
+        setDir(UP);
     }
 
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
       vel.y = 1;
-      setState(WALK_DOWN);
+      
+      setState(WALK);
+      
+      if (vel.x == 0)
+        setDir(DOWN);
     }
 
     else
@@ -72,20 +70,27 @@ private:
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
       vel.x = -1;
-      setState(WALK_L);
+      
+      setState(WALK);
+      setDir(LEFT);
     }
 
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
       vel.x = 1;
-      setState(WALK_R);
+      
+      setState(WALK);
+      setDir(RIGHT);
     }
 
     else
       vel.x = 0;
+  
+    if (vel.x == 0 && vel.y == 0)
+      setState(IDLE);
   }
 
   void move(float dt) {
-    pos += vel * speed * dt;
+    pos += static_cast<sf::Vector2f>(vel) * speed * dt;
     sprite.setPosition(pos);
   }
 
@@ -94,7 +99,7 @@ private:
       return;
 
     frame_timer += dt;
-
+    
     // move frames, if reach last frame, go back to first one
     if (frame_timer >= 1.0f / fps) {
       if (++curr_frame == curr_frame_count)
@@ -103,30 +108,42 @@ private:
     }
   }
 
-  void setState(State new_state) {
-    if (new_state == curr_state)
+  void setState(State new_state){
+    if (curr_state == new_state)
       return;
-
-    // map.find() returns map.end() if value not found for given key
-    if (anims.find(new_state) == anims.end()) {
-      curr_state = NONE;
-      return;
-    }
 
     curr_state = new_state;
 
-    AnimInfo target = anims.at(curr_state);
-
+    StateInfo target = getStateInfo(curr_state, curr_dir);
+    
     curr_frame_count = target.frame_count;
+    curr_frame = 0;
+  }
+
+  void setDir(Direction new_dir){
+    if (curr_dir == new_dir){
+      return;
+    }
+
+    curr_dir = new_dir;
+    curr_frame = 0;
+  }
+
+  DirectionMap& getDirectionMap(State state){
+    return states.at(state);
+  }
+
+  StateInfo &getStateInfo(State state, Direction dir) {
+    return states.at(state).at(dir);
   }
 
   void animate() {
     if (curr_state == NONE)
       return;
 
-    AnimInfo target = anims.at(curr_state);
-
-    // draw rect tracks current frame
+    StateInfo target = getStateInfo(curr_state, curr_dir);
+  
+    // draw rect tracks current frame; must be done continuously
     draw_rect.left = (target.coords.x + curr_frame) * frame_dimensions.x;
     draw_rect.top = target.coords.y * frame_dimensions.y;
 
@@ -139,14 +156,15 @@ public:
    * constructed? but how is a reference default constructed?
    */
   Player(sf::Texture &spritesheet, sf::Vector2i frame_dimensions,
-         std::map<State, AnimInfo> &anims)
-      : anims(anims) {
+         StateMap &states)
+      : states(states) {
     this->frame_dimensions = frame_dimensions;
-    this->anims = anims;
+    this->states = states;
 
     draw_rect.width = frame_dimensions.x;
     draw_rect.height = frame_dimensions.y;
 
+    sprite.setScale(sf::Vector2f(scale, scale));
     sprite.setTexture(spritesheet);
   }
 
@@ -155,22 +173,15 @@ public:
     window.draw(sprite);
   }
 
-  void debug_info(){
-    std::cout << "----------" << std::endl;
-    std::cout << "STATE: " << curr_state << std::endl;
-    std::cout << "DRAW RECT: " << draw_rect.top << ", " << draw_rect.left << ", " << draw_rect.width << ", " << draw_rect.height << std::endl;
-    std::cout << "CURRENT FRAME/CURR FRAME COUNT: " << curr_frame << "/" << curr_frame_count <<  std::endl;
-    std::cout << "----------" << std::endl;
-  }
-
   void update(float dt) {
     onUserInput();
 
     animate();
     move(dt);
     stepFrame(dt);
-    
-    // debug_info
+
+    // debug
+    std::cout << "State, Direction, Frame/Total: " << curr_state << ", " << curr_dir << ", " << curr_frame << "/" << curr_frame_count << std::endl;
   }
 };
 
@@ -181,16 +192,31 @@ int main() {
   if (!player_tex.loadFromFile(cwd + "/assets/player.png"))
     return EXIT_FAILURE;
 
-  std::map<State, AnimInfo> player_anims = {
-      {WALK_DOWN, AnimInfo(sf::Vector2i(0, 0), 3)},
-      {WALK_R, AnimInfo(sf::Vector2i(0, 1), 3)},
-      {WALK_L, AnimInfo(sf::Vector2i(0, 2), 3)},
-      {WALK_UP, AnimInfo(sf::Vector2i(0, 3), 3)},
-      {ATTACK_DOWN, AnimInfo(sf::Vector2i(3, 0), 3)},
-      {ATTACK_R, AnimInfo(sf::Vector2i(3, 1), 3)},
-      {ATTACK_L, AnimInfo(sf::Vector2i(3, 2), 3)},
-      {ATTACK_UP, AnimInfo(sf::Vector2i(3, 3), 3)},
+  // player animation data loading is extremely clunky; find an automated way to
+  // do this using files
+  DirectionMap player_idle = {
+      {UP, StateInfo(sf::Vector2i(1, 3), 1)},
+      {DOWN, StateInfo(sf::Vector2i(1, 0), 1)},
+      {LEFT, StateInfo(sf::Vector2i(1, 2), 1)},
+      {RIGHT, StateInfo(sf::Vector2i(1, 1), 1)},
   };
+
+  DirectionMap player_walk = {
+      {UP, StateInfo(sf::Vector2i(0, 3), 3)},
+      {DOWN, StateInfo(sf::Vector2i(0, 0), 3)},
+      {LEFT, StateInfo(sf::Vector2i(0, 2), 3)},
+      {RIGHT, StateInfo(sf::Vector2i(0, 1), 3)},
+  };
+
+  DirectionMap player_attack = {
+      {UP, StateInfo(sf::Vector2i(3, 3), 3)},
+      {DOWN, StateInfo(sf::Vector2i(3, 0), 3)},
+      {LEFT, StateInfo(sf::Vector2i(3, 2), 3)},
+      {RIGHT, StateInfo(sf::Vector2i(3, 1), 3)},
+  };
+
+  StateMap player_states = {
+      {IDLE, player_idle}, {WALK, player_walk}, {ATTACK, player_attack}};
 
   sf::VideoMode vm(800, 600);
   sf::RenderWindow window(vm, "RPG");
@@ -200,7 +226,7 @@ int main() {
   sf::Clock dt_clock;
   float dt;
 
-  Player player(player_tex, sf::Vector2i(32, 32), player_anims);
+  Player player(player_tex, sf::Vector2i(32, 32), player_states);
 
   while (window.isOpen()) {
     sf::Event event;
@@ -212,8 +238,6 @@ int main() {
     }
 
     dt = dt_clock.restart().asSeconds();
-    
-    std::cout << "HELLO" << std::endl;
 
     player.update(dt);
 
