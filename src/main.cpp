@@ -28,7 +28,10 @@ private:
   sf::Vector2f pos{0, 0};
   sf::Vector2i vel{0, 0};
 
-  float speed{150};
+  float base_speed{175};
+  float speed_multiplier{1};
+  std::map<State, float> speed_multipliers = {{ATTACK, 0.5}};
+
   float scale{2};
 
   sf::Sprite sprite;
@@ -45,22 +48,28 @@ private:
   State curr_state{NONE};
   Direction curr_dir{UP};
 
+  bool in_action = false;
+
   void onUserInput() {
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::C)) {
+      startAction(ATTACK);
+    }
+
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
       vel.y = -1;
-      
+
       setState(WALK);
-      
-      // Prefer left/right animations when going diagonally! Looks better :)
+
+      // left/right animations when going diagonally look better :)
       if (vel.x == 0)
         setDir(UP);
     }
 
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
       vel.y = 1;
-      
+
       setState(WALK);
-      
+
       if (vel.x == 0)
         setDir(DOWN);
     }
@@ -70,27 +79,27 @@ private:
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
       vel.x = -1;
-      
+
       setState(WALK);
       setDir(LEFT);
     }
 
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
       vel.x = 1;
-      
+
       setState(WALK);
       setDir(RIGHT);
     }
 
     else
       vel.x = 0;
-  
+
     if (vel.x == 0 && vel.y == 0)
       setState(IDLE);
   }
 
   void move(float dt) {
-    pos += static_cast<sf::Vector2f>(vel) * speed * dt;
+    pos += static_cast<sf::Vector2f>(vel) * base_speed * speed_multiplier * dt;
     sprite.setPosition(pos);
   }
 
@@ -99,39 +108,56 @@ private:
       return;
 
     frame_timer += dt;
-    
+
     // move frames, if reach last frame, go back to first one
     if (frame_timer >= 1.0f / fps) {
-      if (++curr_frame == curr_frame_count)
+      if (++curr_frame == curr_frame_count) {
+        if (in_action)
+          endAction();
         curr_frame = 0;
+      }
+
       frame_timer = 0;
     }
   }
 
-  void setState(State new_state){
-    if (curr_state == new_state)
+  void startAction(State action) {
+    setState(action);
+    in_action = true;
+  }
+
+  void endAction() { in_action = false; }
+
+  void setState(State new_state) {
+    if (curr_state == new_state || in_action)
       return;
 
     curr_state = new_state;
 
+    speed_multiplier =
+        speed_multipliers.find(curr_state) == speed_multipliers.end()
+            ? 1
+            : speed_multipliers.at(curr_state);
+
     StateInfo target = getStateInfo(curr_state, curr_dir);
-    
+
     curr_frame_count = target.frame_count;
     curr_frame = 0;
   }
 
-  void setDir(Direction new_dir){
-    if (curr_dir == new_dir){
+  void setDir(Direction new_dir) {
+    if (curr_dir == new_dir) {
       return;
     }
 
     curr_dir = new_dir;
-    curr_frame = 0;
+
+    // actions are one-time animations; we should never reset them
+    if (!in_action)
+      curr_frame = 0;
   }
 
-  DirectionMap& getDirectionMap(State state){
-    return states.at(state);
-  }
+  DirectionMap &getDirectionMap(State state) { return states.at(state); }
 
   StateInfo &getStateInfo(State state, Direction dir) {
     return states.at(state).at(dir);
@@ -142,7 +168,7 @@ private:
       return;
 
     StateInfo target = getStateInfo(curr_state, curr_dir);
-  
+
     // draw rect tracks current frame; must be done continuously
     draw_rect.left = (target.coords.x + curr_frame) * frame_dimensions.x;
     draw_rect.top = target.coords.y * frame_dimensions.y;
@@ -181,7 +207,9 @@ public:
     stepFrame(dt);
 
     // debug
-    std::cout << "State, Direction, Frame/Total: " << curr_state << ", " << curr_dir << ", " << curr_frame << "/" << curr_frame_count << std::endl;
+    std::cout << "State, Direction, Frame/Total: " << curr_state << ", "
+              << curr_dir << ", " << curr_frame << "/" << curr_frame_count
+              << std::endl;
   }
 };
 
