@@ -2,6 +2,7 @@
 #include <iostream>
 #include <map>
 
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
@@ -20,8 +21,10 @@ public:
   }
 } StateInfo;
 
-typedef struct std::map<Direction, StateInfo> DirectionMap;
-typedef struct std::map<State, DirectionMap> StateMap;
+typedef std::map<Direction, StateInfo> DirectionMap;
+typedef std::map<State, DirectionMap> StateMap;
+typedef std::map<State, sf::SoundBuffer &>
+    SoundMap; // we use reference because we need to loadFromFile
 
 class Player {
 private:
@@ -30,7 +33,8 @@ private:
 
   float base_speed{175};
   float speed_multiplier{1};
-  std::map<State, float> speed_multipliers = {{ATTACK, 0.5}};
+
+  std::map<State, float> speed_multipliers = {{ATTACK, 0.75}};
 
   float scale{2};
 
@@ -50,11 +54,10 @@ private:
 
   bool in_action = false;
 
-  void onUserInput() {
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::C)) {
-      startAction(ATTACK);
-    }
+  SoundMap sfx;
+  sf::Sound sound;
 
+  void onKeypressInput(float dt) {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
       vel.y = -1;
 
@@ -96,10 +99,9 @@ private:
 
     if (vel.x == 0 && vel.y == 0)
       setState(IDLE);
-  }
 
-  void move(float dt) {
     pos += static_cast<sf::Vector2f>(vel) * base_speed * speed_multiplier * dt;
+
     sprite.setPosition(pos);
   }
 
@@ -109,7 +111,7 @@ private:
 
     frame_timer += dt;
 
-    // move frames, if reach last frame, go back to first one
+    // onKeypressInput frames, if reach last frame, go back to first one
     if (frame_timer >= 1.0f / fps) {
       if (++curr_frame == curr_frame_count) {
         if (in_action)
@@ -122,14 +124,25 @@ private:
   }
 
   void startAction(State action) {
-    setState(action);
+    setState(action, true);
     in_action = true;
   }
 
-  void endAction() { in_action = false; }
+  void endAction() {
+    in_action = false;
+    setState(IDLE);
+  }
 
-  void setState(State new_state) {
-    if (curr_state == new_state || in_action)
+  void playSound(State source) {
+    if (sfx.find(curr_state) != sfx.end()) {
+      sound.setBuffer(sfx.at(curr_state));
+    }
+
+    sound.play();
+  }
+
+  void setState(State new_state, bool reset = false) {
+    if ((curr_state == new_state || in_action) && !reset)
       return;
 
     curr_state = new_state;
@@ -182,10 +195,11 @@ public:
    * constructed? but how is a reference default constructed?
    */
   Player(sf::Texture &spritesheet, sf::Vector2i frame_dimensions,
-         StateMap &states)
-      : states(states) {
+         StateMap &states, SoundMap &sfx)
+      : states(states), sfx(sfx) {
     this->frame_dimensions = frame_dimensions;
     this->states = states;
+    this->sfx = sfx;
 
     draw_rect.width = frame_dimensions.x;
     draw_rect.height = frame_dimensions.y;
@@ -194,18 +208,28 @@ public:
     sprite.setTexture(spritesheet);
   }
 
+  void onEvent(sf::Event event) {
+    if (event.type == sf::Event::KeyPressed) {
+      switch (event.key.scancode) {
+      case sf::Keyboard::Scan::C:
+        startAction(ATTACK);
+        playSound(ATTACK);
+        break;
+      default:
+        break;
+      }
+    }
+  }
+
   void draw(sf::RenderWindow &window) {
     // draw sprite to window
     window.draw(sprite);
   }
 
   void update(float dt) {
-    onUserInput();
-
-    animate();
-    move(dt);
+    onKeypressInput(dt);
     stepFrame(dt);
-
+    animate();
     // debug
     std::cout << "State, Direction, Frame/Total: " << curr_state << ", "
               << curr_dir << ", " << curr_frame << "/" << curr_frame_count
@@ -215,6 +239,10 @@ public:
 
 int main() {
   std::string cwd = std::filesystem::current_path().generic_string();
+
+  sf::SoundBuffer attack_fx;
+  if (!attack_fx.loadFromFile(cwd + "/assets/attack.wav"))
+    return EXIT_FAILURE;
 
   sf::Texture player_tex;
   if (!player_tex.loadFromFile(cwd + "/assets/player.png"))
@@ -246,15 +274,18 @@ int main() {
   StateMap player_states = {
       {IDLE, player_idle}, {WALK, player_walk}, {ATTACK, player_attack}};
 
+  SoundMap player_sounds = {{ATTACK, attack_fx}};
+
   sf::VideoMode vm(800, 600);
   sf::RenderWindow window(vm, "RPG");
 
   window.setFramerateLimit(60);
+  window.setKeyRepeatEnabled(false);
 
   sf::Clock dt_clock;
   float dt;
 
-  Player player(player_tex, sf::Vector2i(32, 32), player_states);
+  Player player(player_tex, sf::Vector2i(32, 32), player_states, player_sounds);
 
   while (window.isOpen()) {
     sf::Event event;
@@ -263,15 +294,16 @@ int main() {
       if (event.type == sf::Event::Closed) {
         window.close();
       }
+
+      player.onEvent(event);
     }
 
     dt = dt_clock.restart().asSeconds();
 
-    player.update(dt);
-
     window.clear(sf::Color::Black);
 
     player.draw(window);
+    player.update(dt);
 
     window.display();
   }

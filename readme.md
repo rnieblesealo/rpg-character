@@ -4,7 +4,12 @@ These are just some loose notes to keep track of how some things work for now!
 
 - [x] Get player instance working
 - [x] Attacking/actions
+- [x] **Error handling!**
 - [ ] Health bar/GUI
+
+### Just 'Cuz
+
+- [x] Sound
 
 ---
 
