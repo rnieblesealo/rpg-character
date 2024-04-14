@@ -3,43 +3,30 @@
 #include "Player.h"
 
 int main() {
-  std::string cwd = std::filesystem::current_path().generic_string();
+  std::string cwd(std::filesystem::current_path().generic_string());
 
   sf::SoundBuffer attack_fx;
   if (!attack_fx.loadFromFile(cwd + "/assets/attack.wav"))
     return EXIT_FAILURE;
 
   sf::Texture player_tex;
-  if (!player_tex.loadFromFile(cwd + "/assets/player.png"))
+  if (!player_tex.loadFromFile(cwd + "/assets/Jeremy/Jeremy_Blonde.png"))
     return EXIT_FAILURE;
 
-  // player animation data loading is extremely clunky; find an automated way to
-  // do this using files
-  DirectionMap player_idle = {
-      {UP, StateInfo(sf::Vector2i(1, 3), 1)},
-      {DOWN, StateInfo(sf::Vector2i(1, 0), 1)},
-      {LEFT, StateInfo(sf::Vector2i(1, 2), 1)},
-      {RIGHT, StateInfo(sf::Vector2i(1, 1), 1)},
-  };
+  Animation player_walk_up{sf::Vector2i(0, 3), sf::Vector2i(32, 32), 3};
+  Animation player_walk_down{sf::Vector2i(0, 0), sf::Vector2i(32, 32), 3};
+  Animation player_walk_left{sf::Vector2i(0, 2), sf::Vector2i(32, 32), 3};
+  Animation player_walk_right{sf::Vector2i(0, 1), sf::Vector2i(32, 32), 3};
 
-  DirectionMap player_walk = {
-      {UP, StateInfo(sf::Vector2i(0, 3), 3)},
-      {DOWN, StateInfo(sf::Vector2i(0, 0), 3)},
-      {LEFT, StateInfo(sf::Vector2i(0, 2), 3)},
-      {RIGHT, StateInfo(sf::Vector2i(0, 1), 3)},
-  };
+  AnimationList player_animations{{WALK,
+                                   {player_walk_up, player_walk_down,
+                                    player_walk_left, player_walk_right}}};
 
-  DirectionMap player_attack = {
-      {UP, StateInfo(sf::Vector2i(3, 3), 3)},
-      {DOWN, StateInfo(sf::Vector2i(3, 0), 3)},
-      {LEFT, StateInfo(sf::Vector2i(3, 2), 3)},
-      {RIGHT, StateInfo(sf::Vector2i(3, 1), 3)},
-  };
+  SoundMap player_sfx{{ATTACK, attack_fx}};
 
-  StateMap player_states = {
-      {IDLE, player_idle}, {WALK, player_walk}, {ATTACK, player_attack}};
+  Animator player_animator(player_tex, player_animations, player_sfx);
 
-  SoundMap player_sounds = {{ATTACK, attack_fx}};
+  Player player(player_animator);
 
   sf::VideoMode vm(800, 600);
   sf::RenderWindow window(vm, "RPG");
@@ -49,8 +36,6 @@ int main() {
 
   sf::Clock dt_clock;
   float dt;
-
-  Player player(player_tex, sf::Vector2i(32, 32), player_states, player_sounds);
 
   while (window.isOpen()) {
     sf::Event event;
