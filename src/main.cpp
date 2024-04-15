@@ -1,6 +1,6 @@
 #include <filesystem>
 
-#include "Player.h"
+#include "Animator.h"
 
 int main() {
   std::string cwd(std::filesystem::current_path().generic_string());
@@ -17,16 +17,6 @@ int main() {
   Animation player_walk_down{sf::Vector2i(0, 0), sf::Vector2i(32, 32), 3};
   Animation player_walk_left{sf::Vector2i(0, 2), sf::Vector2i(32, 32), 3};
   Animation player_walk_right{sf::Vector2i(0, 1), sf::Vector2i(32, 32), 3};
-
-  AnimationList player_animations{{WALK,
-                                   {player_walk_up, player_walk_down,
-                                    player_walk_left, player_walk_right}}};
-
-  SoundMap player_sfx{{ATTACK, attack_fx}};
-
-  Animator player_animator(player_tex, player_animations, player_sfx);
-
-  Player player(player_animator);
 
   sf::VideoMode vm(800, 600);
   sf::RenderWindow window(vm, "RPG");
@@ -45,15 +35,14 @@ int main() {
         window.close();
       }
 
-      player.onEvent(event);
+      // event-dependent code here
     }
 
     dt = dt_clock.restart().asSeconds();
 
     window.clear(sf::Color::Black);
 
-    player.draw(window);
-    player.update(dt);
+    // draw code here
 
     window.display();
   }

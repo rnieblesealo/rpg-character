@@ -1,14 +1,15 @@
 #ifndef ANIMATOR_H
 #define ANIMATOR_H
 
-#include <map>
-#include <vector>
+#include <array>
 
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 
-enum State { NONE, IDLE, WALK, ATTACK };
+#define NONE -1
+#define MAX_ANIMS 32
+#define MAX_SOUNDS 32
 
 class Animation {
 public:
@@ -20,17 +21,10 @@ public:
             int frame_count);
 };
 
-class SplitAnimation : public Animation {
-  sf::Texture &spritesheet;
-
-  SplitAnimation(sf::Texture &spritesheet, sf::Vector2i coords,
-                 sf::Vector2i frame_dimensions, int frame_count);
-};
-
-typedef std::map<State, std::vector<Animation>> AnimationList;
-typedef std::map<State, sf::SoundBuffer &> SoundMap;
-
 class Animator {
+  std::array<Animation, MAX_ANIMS>& anims;
+  std::array<sf::SoundBuffer, MAX_SOUNDS>& sfx;
+
   sf::Sprite sprite;
   sf::IntRect draw_rect{0, 0, 0, 0};
   float scale{2};
@@ -38,30 +32,18 @@ class Animator {
   int fps{8};
   int curr_frame_count{0};
   int curr_frame{0};
+  int curr_anim{0};
   float frame_timer{0};
 
-  AnimationList anims;
-
-  State curr_state{NONE};
-  bool in_action{false};
-  int curr_anim{0};
-  int default_anim{0}; // default animation of every state
-
-  SoundMap sfx;
-  sf::Sound sound;
+  sf::Sound audio_source;
 
   void stepFrame(float dt);
 
-  Animation &getAnim(State state, int idx);
-
 public:
-  Animator(sf::Texture &spritesheet, AnimationList &anims, SoundMap &sfx);
+  Animator(sf::Texture &spritesheet, std::array<Animation, MAX_ANIMS>& anims, std::array<sf::SoundBuffer, MAX_SOUNDS>& sfx);
 
-  void startAction(State action, int anim = -1);
-  void endAction();
-  void playSound(State source);
-  void setState(State new_state, int idx = -1, bool reset = false);
-  void setAnim(int idx);
+  void playSound(int sound);
+  void playAnim(int anim);
   void draw(sf::RenderWindow &window, sf::Vector2f pos);
   void update(float dt);
 };
