@@ -38,6 +38,19 @@ All enemies will shoot some sort of projectile at you. There will be obstacles i
 
 These are just some loose notes to keep track of how some things work for now!
 
+### Caveats
+
+These are some decisions that might seem strange but have reasons behind them.
+
+Each one comes with a **problem**, an **explanation** of the problem, a chosen **workaround**, and a **justification** for this workaround.
+
+- **Problem**: Cannot assign to `Player` member `Animator&` (which is a reference) from the constructor 
+    - **Explanation**: From my understanding, once references are set, the `=` operator gets deleted because references can't be reassigned
+        - Using move semantics, we can modify the operator and change this behavior
+            - This is probably why we *can* `=` references of stuff in the `sf` and `std` namespaces
+    - **Workaround**: Make the `Animator` member a pointer instead of a reference
+        - **Justification**: Move semantics seems like a lengthy topic I'm not familiar with. I do understand pointers, and they get the job done. 
+
 ### Sprite Data
 
 - Passed in spritesheet images should have **evenly-sized frames** laid out in **horizontal** sequence

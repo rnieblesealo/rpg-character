@@ -17,13 +17,20 @@ public:
   sf::Vector2i frame_dimensions;
   int frame_count;
 
+  // this default constructor is needed, because std::array tries to default-construct its members
+  // if not fully initialized
+  Animation() {
+    this->coords = sf::Vector2i(0, 0);
+    this->frame_dimensions = sf::Vector2i(0, 0), this->frame_count = 0;
+  }
+
   Animation(sf::Vector2i coords, sf::Vector2i frame_dimensions,
             int frame_count);
 };
 
 class Animator {
-  std::array<Animation, MAX_ANIMS>& anims;
-  std::array<sf::SoundBuffer, MAX_SOUNDS>& sfx;
+  std::array<Animation, MAX_ANIMS> &anims;
+  std::array<sf::SoundBuffer, MAX_SOUNDS> &sfx;
 
   sf::Sprite sprite;
   sf::IntRect draw_rect{0, 0, 0, 0};
@@ -40,7 +47,8 @@ class Animator {
   void stepFrame(float dt);
 
 public:
-  Animator(sf::Texture &spritesheet, std::array<Animation, MAX_ANIMS>& anims, std::array<sf::SoundBuffer, MAX_SOUNDS>& sfx);
+  Animator(sf::Texture &spritesheet, std::array<Animation, MAX_ANIMS> &anims,
+           std::array<sf::SoundBuffer, MAX_SOUNDS> &sfx);
 
   void playSound(int sound);
   void playAnim(int anim);

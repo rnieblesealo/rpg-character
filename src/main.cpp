@@ -13,10 +13,13 @@ int main() {
   if (!player_tex.loadFromFile(cwd + "/assets/Jeremy/Jeremy_Blonde.png"))
     return EXIT_FAILURE;
 
-  Animation player_walk_up{sf::Vector2i(0, 3), sf::Vector2i(32, 32), 3};
-  Animation player_walk_down{sf::Vector2i(0, 0), sf::Vector2i(32, 32), 3};
-  Animation player_walk_left{sf::Vector2i(0, 2), sf::Vector2i(32, 32), 3};
-  Animation player_walk_right{sf::Vector2i(0, 1), sf::Vector2i(32, 32), 3};
+
+  std::array<Animation, MAX_ANIMS> player_animations = {
+    Animation(sf::Vector2i(0, 3), sf::Vector2i(32, 32), 3), // walk up
+    Animation(sf::Vector2i(0, 0), sf::Vector2i(32, 32), 3), // walk down
+    Animation(sf::Vector2i(0, 2), sf::Vector2i(32, 32), 3), // walk left
+    Animation(sf::Vector2i(0, 1), sf::Vector2i(32, 32), 3)  // walk right
+  };
 
   sf::VideoMode vm(800, 600);
   sf::RenderWindow window(vm, "RPG");
